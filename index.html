@@ -507,8 +507,8 @@ function render() {
           <div class="small mb-8" style="font-weight:700;color:var(--teal)">FRAGE</div>
           <p style="font-size:17px;font-weight:700;line-height:1.4;margin-bottom:12px">${Q?.q}</p>
           <div class="answer-box" style="background:${myFish==='blue'?'#3498db22':'#e74c3c22'}">
-            <div class="tiny" style="font-weight:700;color:${col};margin-bottom:4px">${myFish==='blue'?'✅ RICHTIGE ANTWORT – gib sie so wieder!':'❌ DENK DIR ETWAS AUS!'}</div>
-            ${myFish==='blue'?`<p style="font-size:15px;font-weight:700;color:var(--gold)">${Q?.a}</p>`:`<p class="small muted">Erfinde eine glaubwürdige Antwort!</p>`}
+            <div class="tiny" style="font-weight:700;color:${col};margin-bottom:4px">${myFish==='blue'?'✅ ECHTER HERING – gib diese Antwort genau so wieder!':'❌ ROTER HERING – erfinde eine gute (aber falsche) Antwort!'}</div>
+            ${myFish==='blue'?`<p style="font-size:15px;font-weight:700;color:var(--gold)">${Q?.a}</p>`:`<div class="small" style="margin-bottom:4px;color:#ffffff88">Zur Info (die richtige Antwort): <br/><span style="text-decoration:line-through;color:var(--gold)">${Q?.a}</span></div>`}
           </div>
           ${!done?`<input id="answerInput" placeholder="${myFish==='blue'?'Tippe die richtige Antwort...':'Deine erfundene Antwort...'}" maxlength="120"/>
             <button class="btn ${myFish==='blue'?'btn-blue':'btn-red'}" onclick="doSubmitAnswer()">Antwort abgeben</button>`
