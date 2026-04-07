@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Riecht Verdächtig</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--ocean:#0B1D3A;--deep:#132D5E;--teal:#1ABC9C;--red:#E74C3C;--gold:#F1C40F;--white:#ECF0F1;--blue:#3498DB;--card:#162A50;--surface:#1A3260}
+body{font-family:'Nunito',sans-serif;background:linear-gradient(180deg,var(--ocean),var(--deep),#0a1628);color:var(--white);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:16px;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+.card{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.4);border:1px solid var(--surface)}
+.btn{border:none;border-radius:12px;padding:14px 24px;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;font-family:inherit;color:#fff;transition:transform .1s,opacity .15s}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn-teal{background:var(--teal);box-shadow:0 4px 16px #1abc9c44}
+.btn-blue{background:var(--blue);box-shadow:0 4px 16px #3498db44}
+.btn-red{background:var(--red);box-shadow:0 4px 16px #e74c3c44}
+.btn-gold{background:var(--gold);color:var(--ocean);box-shadow:0 4px 16px #f1c40f44}
+.btn-surface{background:var(--surface);box-shadow:none}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+input,.textarea{background:var(--surface);border:1px solid #1abc9c44;border-radius:10px;padding:12px 16px;font-size:16px;color:var(--white);width:100%;font-family:inherit;outline:none}
+input:focus,.textarea:focus{border-color:var(--teal)}
+.code-input{text-align:center;letter-spacing:8px;font-size:24px;font-weight:900;text-transform:uppercase}
+.tag{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:800;display:inline-block}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0}
+.divider-line{flex:1;height:1px;background:var(--surface)}
+.divider-text{color:var(--teal);font-size:13px;font-weight:700}
+.player-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:4px}
+.answer-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;margin-bottom:8px;border-radius:12px;border:1px solid #1abc9c44;background:var(--surface);cursor:pointer;text-align:left;font-family:inherit;color:var(--white);font-size:15px;transition:all .3s}
+.answer-btn:disabled{cursor:default}
+.answer-btn.flipped-red{background:#e74c3c22;border-color:transparent;opacity:.7}
+.answer-btn.flipped-blue{background:#3498db33;border-color:transparent;opacity:.7}
+.score-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:4px}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fade-in{animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.center{text-align:center}
+.mt-24{margin-top:24px}
+.mt-12{margin-top:12px}
+.mt-16{margin-top:16px}
+.mt-32{margin-top:32px}
+.mb-8{margin-bottom:8px}
+.mb-12{margin-bottom:12px}
+.mb-16{margin-bottom:16px}
+.small{font-size:13px}
+.tiny{font-size:11px}
+.muted{color:#ffffff88}
+.error{color:var(--red);font-size:13px;margin-top:8px}
+.fish-badge{font-size:12px;padding:2px 8px;border-radius:6px;font-weight:700;color:#fff}
+.status-dot{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.status-dot .chip{padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600}
+.emoji-big{font-size:56px;margin-bottom:8px}
+.emoji-med{font-size:40px;margin:8px 0}
+.label{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.answer-box{border-radius:10px;padding:12px;margin-bottom:12px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// 200 QUESTIONS
+// ═══════════════════════════════════════════════════════════════════
+const QS=[
+{q:"Was ist in Alabama illegal, wenn man Schuhe trägt?",a:"Stelzenlaufen"},
+{q:"Was darf man in der Schweiz sonntags nicht tun?",a:"Rasen mähen"},
+{q:"Was ist in Singapur seit 1992 verboten?",a:"Kaugummi kauen"},
+{q:"Was darf man in Thailand nicht auf den Boden werfen?",a:"Geldscheine (sie tragen das Bild des Königs)"},
+{q:"Was ist in North Dakota verboten, wenn man einen Hut trägt?",a:"Tanzen"},
+{q:"Was darf man in Frankreich kein Schwein nennen?",a:"Napoleon"},
+{q:"Was ist in Venedig verboten, obwohl es Touristen ständig tun?",a:"Tauben füttern"},
+{q:"Was ist in Florida Pflicht, wenn man einen Elefanten parkt?",a:"Man muss eine Parkgebühr zahlen wie für ein Auto"},
+{q:"Was darf man in Ohio nicht an einen Fisch verkaufen?",a:"Alkohol"},
+{q:"Was ist in Connecticut verboten nach Sonnenuntergang?",a:"Rückwärts gehen"},
+{q:"Was muss man in Dänemark tun, bevor man ein Auto startet?",a:"Unter das Auto schauen, ob jemand darunter liegt"},
+{q:"Was ist in Japan gesetzlich geregelt bezüglich der Taille?",a:"Maximaler Bauchumfang für über 40-Jährige"},
+{q:"Was ist in Großbritannien technisch Hochverrat?",a:"Eine Briefmarke mit dem Kopf der Königin kopfüber aufkleben"},
+{q:"Was ist in Mailand für Bürger gesetzlich vorgeschrieben?",a:"Lächeln (außer bei Beerdigungen und Krankenhausbesuchen)"},
+{q:"Was darf man in Baltimore nicht ins Kino mitbringen?",a:"Einen Löwen"},
+{q:"Was ist in Vermont sonntags für Frauen verboten?",a:"Ohne Erlaubnis des Ehemanns falsche Zähne tragen"},
+{q:"Was war in England bis 1960 illegal zu versuchen?",a:"Selbstmord"},
+{q:"Was ist in Australien verboten mit einem Taxi zu tun?",a:"Heu auf dem Dach transportieren"},
+{q:"Was darf man in Kentucky nicht mit einem Eiscreme-Hörnchen tun?",a:"Es in die Hosentasche stecken"},
+{q:"Was muss man in Indonesien bei Ehebruch befürchten?",a:"Enthauptung (historisch auf Sumatra)"},
+{q:"Was nutzen Seeotter, um im Schlaf nicht abzutreiben?",a:"Sie halten Händchen"},
+{q:"Was kann ein Kolibri, das kein anderer Vogel kann?",a:"Rückwärts fliegen"},
+{q:"Wie viele Herzen hat ein Oktopus?",a:"Drei"},
+{q:"Was passiert mit Kühen, wenn sie beste Freunde haben?",a:"Ihr Stresslevel sinkt messbar"},
+{q:"Was passiert mit Rentieraugen im Winter?",a:"Sie verfärben sich von gold zu blau"},
+{q:"Womit hören Schlangen?",a:"Mit dem Unterkiefer"},
+{q:"Was können Krokodile nicht?",a:"Ihre Zunge herausstrecken"},
+{q:"Was passiert, wenn man einen Goldfisch in einen dunklen Raum stellt?",a:"Er wird blass/weiß"},
+{q:"Womit schmecken Schmetterlinge?",a:"Mit den Füßen"},
+{q:"Was kann eine Kakerlake mehrere Tage ohne überleben?",a:"Ihren Kopf"},
+{q:"Was tut ein Seepferdchen-Männchen, das sonst kein anderes Männchen tut?",a:"Die Babys austragen und gebären"},
+{q:"Was können Flamingos nur, wenn ihr Kopf auf dem Kopf steht?",a:"Fressen"},
+{q:"Wie kommunizieren Elefanten über weite Strecken?",a:"Mit Infraschall durch den Boden über die Füße"},
+{q:"Was passiert, wenn eine Seegurke bedroht wird?",a:"Sie spuckt ihre inneren Organe aus"},
+{q:"Was nutzen Delfine manchmal als Spielzeug?",a:"Kugelfische (sie berauschen sich am Gift)"},
+{q:"Welches Tier schläft nur 5 Minuten pro Tag?",a:"Die Giraffe"},
+{q:"Was haben Katzen und Kamele gemeinsam beim Gehen?",a:"Sie bewegen beide Beine einer Seite gleichzeitig"},
+{q:"Was macht der Bombardierkäfer bei Gefahr?",a:"Er schießt kochend heiße Chemikalie aus dem Hintern"},
+{q:"Was ist das einzige Säugetier, das fliegen kann?",a:"Die Fledermaus"},
+{q:"Wie viele Nasenlöcher hat eine Nacktschnecke?",a:"Eins"},
+{q:"Was verwendete 1996 eine US-Amerikanerin, um ein Hühnerauge zu entfernen?",a:"Eine Schrotflinte"},
+{q:"Was wurde im alten Rom als Mundwasser benutzt?",a:"Urin"},
+{q:"Was trugen Kleopatras Dienerinnen als Lippenstift?",a:"Zerdrückte Käfer"},
+{q:"Was war Napoleons größte dokumentierte Angst?",a:"Katzen"},
+{q:"Was taten die Azteken als Zahlungsmittel?",a:"Kakaobohnen verwenden"},
+{q:"Was wurde im mittelalterlichen England als Wecker benutzt?",a:"Ein Mensch, der gegen Fenster klopfte (Knocker-upper)"},
+{q:"Welches Tier erhielt im Ersten Weltkrieg einen militärischen Rang?",a:"Ein Bär namens Wojtek (Gefreiter, polnische Armee)"},
+{q:"Was tranken römische Gladiatoren zur Stärkung?",a:"Knochenasche in Wasser gelöst"},
+{q:"Was war das erste Produkt mit Barcode?",a:"Ein Päckchen Wrigley's Kaugummi"},
+{q:"Was erfand der Zahnarzt William Morrison ironischerweise?",a:"Die Zuckerwattemaschine"},
+{q:"Wie lang dauerte der kürzeste Krieg der Geschichte?",a:"38 Minuten (England vs. Sansibar, 1896)"},
+{q:"Was entdeckte Alexander Fleming durch Schlamperei?",a:"Penicillin (verschimmelter Nährboden)"},
+{q:"Was machte Einstein mit seinem Nobelpreisgeld?",a:"Er gab es seiner Ex-Frau als Teil der Scheidung"},
+{q:"Was waren die letzten Worte von Oscar Wilde?",a:"Entweder geht die Tapete oder ich"},
+{q:"Was war die kürzeste Regierungszeit eines brit. Premierministers?",a:"45 Tage (Liz Truss, 2022)"},
+{q:"Was wurde im Mittelalter als Zahnpasta verwendet?",a:"Mäusehirn"},
+{q:"Was schickte der Papst 1481 als Geschenk an Sultan Bayezid?",a:"Einen vergoldeten Regenschirm"},
+{q:"Wer hat die Brille erfunden?",a:"Unbekannt – erstmals im 13. Jh. in Italien erwähnt"},
+{q:"Was gab es in London 1814 durch einen Brauereiunfall?",a:"Eine tödliche Bierflut (über 1 Mio. Liter)"},
+{q:"Was hat Oxford University und die Azteken gemeinsam?",a:"Oxford ist älter (gegründet vor dem Aztekenreich)"},
+{q:"Woraus wurde Fanta in Deutschland im Krieg hergestellt?",a:"Aus Molke und Apfelresten"},
+{q:"Was ist technisch gesehen eine Beere?",a:"Die Banane"},
+{q:"Wie viel Prozent der Haselnussernte kauft Ferrero?",a:"Etwa 25%"},
+{q:"Was passiert mit Honig, auch nach Jahrtausenden?",a:"Er wird nicht schlecht"},
+{q:"Was wurde in Japan als Kit-Kat-Geschmack verkauft?",a:"Wasabi"},
+{q:"Woraus wird die rote Lebensmittelfarbe Karmin gewonnen?",a:"Aus zermahlenen Schildläusen"},
+{q:"Was ist das meistgestohlene Lebensmittel der Welt?",a:"Käse"},
+{q:"Wie viele Erdnüsse braucht man für ein Glas Erdnussbutter?",a:"Etwa 540"},
+{q:"Was passiert, wenn man eine Rosine in Champagner wirft?",a:"Sie springt im Glas auf und ab"},
+{q:"Was enthält mehr Zucker als eine Erdbeere?",a:"Eine Zitrone"},
+{q:"Was war die Farbe von Karotten vor dem 17. Jahrhundert?",a:"Lila"},
+{q:"Welches Land isst pro Kopf am meisten Schokolade?",a:"Schweiz"},
+{q:"Was wurde ursprünglich als Medizin verkauft?",a:"Coca-Cola"},
+{q:"Was passiert, wenn man Ananas zu lange im Mund behält?",a:"Sie verdaut die Mundschleimhaut (Bromelain)"},
+{q:"Was wiegt der größte jemals angebaute Kürbis?",a:"Über 1.200 Kilogramm"},
+{q:"Was ist das meistgegessene Insekt der Welt?",a:"Mehlwurm / Käfer"},
+{q:"Was kostet die teuerste Pizza der Welt?",a:"Ca. 12.000 Dollar"},
+{q:"Was entsteht, wenn man Cola und Mentos mischt?",a:"Eine Fontäne (CO₂-Freisetzung)"},
+{q:"Wie viele Liter Speichel produziert ein Mensch im Leben?",a:"Ca. 35.000 Liter"},
+{q:"Was ist das härteste Material im menschlichen Körper?",a:"Zahnschmelz"},
+{q:"Wie weit kann ein Nieser fliegen?",a:"Bis zu 8 Meter"},
+{q:"Was haben Menschen und Bananen genetisch gemeinsam?",a:"Etwa 60% identische DNA"},
+{q:"Was passiert mit dem Blut im Weltraum ohne Raumanzug?",a:"Es beginnt zu sieden"},
+{q:"Wie viele Bakterien leben auf einem cm² Haut?",a:"Etwa 10 Millionen"},
+{q:"Was erzeugt ein Blitz an Temperatur?",a:"Bis zu 30.000°C (5x heißer als Sonnenoberfläche)"},
+{q:"Was passiert alle 7-10 Jahre mit dem Skelett?",a:"Es erneuert sich komplett"},
+{q:"Was kann ein Teelöffel Neutronenstern wiegen?",a:"Etwa 6 Milliarden Tonnen"},
+{q:"Was passiert mit dem Eiffelturm im Sommer?",a:"Er wird ca. 15 cm größer (Wärmeausdehnung)"},
+{q:"Was ist die häufigste Farbe im Universum?",a:"Blasses Beige (Cosmic Latte)"},
+{q:"Wie schwer ist eine durchschnittliche Wolke?",a:"Etwa 500 Tonnen"},
+{q:"Was hat mehr Rechenpower: ein iPhone oder die Mondlandung?",a:"Ein iPhone (millionenfach mehr)"},
+{q:"Wie lang ist der Darm eines Menschen ausgerollt?",a:"Etwa 7-8 Meter"},
+{q:"Welches Organ regeneriert sich, auch wenn 75% fehlen?",a:"Die Leber"},
+{q:"Was ist tödlicher: Kokosnuss oder Hai?",a:"Kokosnuss (mehr Todesfälle pro Jahr)"},
+{q:"Was passiert mit der Nase im Schlaf?",a:"Der Geruchssinn schaltet ab"},
+{q:"Wie schnell wachsen Fingernägel vs. Fußnägel?",a:"Ca. 4x schneller"},
+{q:"Was passiert beim Verlieben im Gehirn chemisch?",a:"Gleiche Stoffe wie bei einer Zwangsstörung"},
+{q:"Wovor hat die Sängerin Adele Angst?",a:"Möwen"},
+{q:"Was tat Charlie Chaplin bei einem Doppelgänger-Wettbewerb?",a:"Er verlor"},
+{q:"Was sammelt Johnny Depp?",a:"Barbie-Puppen"},
+{q:"Was war der Berufswunsch von Papst Franziskus als Kind?",a:"Metzger"},
+{q:"Was konnte Leonardo da Vinci gleichzeitig?",a:"Mit einer Hand schreiben und mit der anderen zeichnen"},
+{q:"Was ist Tom Hanks' Hobby?",a:"Schreibmaschinen sammeln"},
+{q:"Was hat Freddie Mercury für seine Katzen zu Weihnachten gemacht?",a:"Kleine personalisierte Strümpfe"},
+{q:"Was machte Steve Jobs vor Apple?",a:"Er arbeitete bei Atari"},
+{q:"Was ist das meistgedruckte Buch nach der Bibel (bis 2021)?",a:"Der IKEA-Katalog"},
+{q:"Was haben die Beatles nie gelernt?",a:"Noten lesen"},
+{q:"Was war das erste YouTube-Video?",a:"Ein 18-Sekunden-Clip im Zoo (Me at the zoo)"},
+{q:"Was war Albert Einsteins schlechtestes Schulfach?",a:"Französisch (nicht Mathe)"},
+{q:"Was ist Keanu Reeves' Spitzname in Hollywood?",a:"The Nice Guy"},
+{q:"Was war der originale Name von Pac-Man?",a:"Puck Man"},
+{q:"Was ist die Hauptstadt von Australien?",a:"Canberra (nicht Sydney)"},
+{q:"Welches Land hat mehr Seen als der Rest der Welt zusammen?",a:"Kanada"},
+{q:"Wo regnet es manchmal Fische?",a:"Honduras (Lluvia de Peces)"},
+{q:"Welche Stadt liegt auf zwei Kontinenten?",a:"Istanbul"},
+{q:"Welches Land hat keine offizielle Hauptstadt?",a:"Nauru"},
+{q:"Wo liegt der trockenste Ort der Erde?",a:"Antarktis (McMurdo Dry Valleys)"},
+{q:"Welches Land hat die meisten Zeitzonen?",a:"Frankreich (12, wegen Überseegebieten)"},
+{q:"Welches Land hat eine nicht-rechteckige Flagge?",a:"Nepal"},
+{q:"Welcher Fluss fließt durch die meisten Hauptstädte?",a:"Die Donau (4 Hauptstädte)"},
+{q:"Welches Land hat mehr Schafe als Menschen?",a:"Neuseeland (ca. 6:1)"},
+{q:"Wie viele Inseln hat Schweden?",a:"Über 220.000"},
+{q:"Was verbindet Russland und die USA geografisch?",a:"Nur 3,8 km Abstand (Diomedes-Inseln)"},
+{q:"Welches europäische Land hat keine Mücken?",a:"Island"},
+{q:"Was ist das einzige Land, das nach einer Frau benannt ist?",a:"St. Lucia"},
+{q:"Welches Land hat die am dünnsten besiedelte Region?",a:"Mongolei"},
+{q:"Welches Land hat Straßen, die nach Hobbits benannt sind?",a:"Neuseeland"},
+{q:"Was ist das kleinste Land der Welt?",a:"Vatikanstadt (0,44 km²)"},
+{q:"Wo steht das höchste Gebäude Europas?",a:"Sankt Petersburg (Lakhta Center)"},
+{q:"Was ist das älteste noch betriebene Restaurant der Welt?",a:"Stiftskeller St. Peter in Salzburg (seit 803)"},
+{q:"Wie lang dauerte das längste Schluckauf-Leiden?",a:"68 Jahre (Charles Osborne)"},
+{q:"Was ist der meistgesungene Song der Welt?",a:"Happy Birthday"},
+{q:"Wie lang war der längste Stau der Welt?",a:"Über 100 km (China, 2010, 12 Tage)"},
+{q:"Was wiegt mehr: alle Ameisen oder alle Menschen?",a:"Ungefähr gleich viel"},
+{q:"Wie alt wurde der älteste Goldfisch?",a:"43 Jahre"},
+{q:"Was ist das meistgeklaute Kunstwerk?",a:"Der Genter Altar (mind. 13 Mal gestohlen)"},
+{q:"Wie viele Sprachen gibt es auf der Welt?",a:"Über 7.000"},
+{q:"Was ist der häufigste Vorname der Welt?",a:"Mohammed"},
+{q:"Wie viele Kombinationen hat ein Rubik's Cube?",a:"43 Trillionen"},
+{q:"Wie lang dauerte der kürzeste Linienflug?",a:"57 Sekunden (Schottland)"},
+{q:"Was ist der teuerste Stoff der Welt?",a:"Antimaterie (ca. 62,5 Billionen Dollar/Gramm)"},
+{q:"Wie schwer war das schwerste Ei aller Zeiten?",a:"Ca. 2,5 kg (Straußenei)"},
+{q:"Was ist die meistgesprochene Muttersprache?",a:"Mandarin-Chinesisch"},
+{q:"Wie lang ist der längste Fingernagel, der je wuchs?",a:"Über 9 Meter (ganze Hand zusammen)"},
+{q:"Welches Wort wird in fast jeder Sprache verstanden?",a:"Hä? (linguistisch nachgewiesen)"},
+{q:"Was bedeutet das japanische Wort Tsundoku?",a:"Bücher kaufen und nie lesen"},
+{q:"Welcher Buchstabe fehlt in allen US-Bundesstaaten?",a:"Q"},
+{q:"Was bedeutet Wiki auf Hawaiianisch?",a:"Schnell"},
+{q:"Was heißt LOL auf Niederländisch?",a:"Spaß"},
+{q:"Was bedeutet Gymnasium im Altgriechischen?",a:"Ort, an dem man nackt trainiert"},
+{q:"Welches Emoji wird weltweit am meisten verwendet?",a:"Das Tränen-lachende Gesicht"},
+{q:"Was bedeutet SPAM ursprünglich?",a:"Spiced Ham (gewürzter Schinken)"},
+{q:"Was war die erste SMS der Geschichte?",a:"Merry Christmas (1992)"},
+{q:"Wie viele Wörter hat Shakespeare erfunden?",a:"Über 1.700"},
+{q:"Was bedeutet der Name Bluetooth?",a:"Wikingerkönig Harald Blauzahn"},
+{q:"Was heißt Handy auf Englisch?",a:"Mobile phone (Handy ist ein deutsches Kunstwort)"},
+{q:"Welches Land hat die meisten Amtssprachen?",a:"Südafrika (11)"},
+{q:"Was bedeutet ADIDAS?",a:"Adi Dassler (Gründer)"},
+{q:"Welche Sprache hat kein Wort für Bitte?",a:"Isländisch"},
+{q:"Was ist das häufigste falsch geschriebene englische Wort?",a:"Accommodate"},
+{q:"Welche Sportart wurde auf dem Mond gespielt?",a:"Golf (Alan Shepard, Apollo 14)"},
+{q:"Wie lang dauerte das kürzeste Profi-Boxmatch?",a:"4 Sekunden"},
+{q:"Wie viele Dimples hat ein Golfball?",a:"Zwischen 300 und 500"},
+{q:"Was können Schachgroßmeister pro Tag verbrennen?",a:"Bis zu 6.000 Kalorien"},
+{q:"Was war die erste registrierte Domain?",a:"symbolics.com (1985)"},
+{q:"Was bedeutet das i in iPhone?",a:"Internet"},
+{q:"Was war der originale Name von Amazon?",a:"Cadabra"},
+{q:"Was war die erste Internet-Nachricht?",a:"LO (Computer stürzte bei LOGIN ab)"},
+{q:"Wie schwer war der erste Computer?",a:"27 Tonnen (ENIAC)"},
+{q:"Was wird pro Minute auf YouTube hochgeladen?",a:"Über 500 Stunden Video"},
+{q:"Welche Farbe hatte der erste iPod?",a:"Weiß"},
+{q:"Was wurde in Japan in Dosen als Haustier verkauft?",a:"Lebende Grashüpfer"},
+{q:"Wie viele Google-Suchen gibt es pro Sekunde?",a:"Über 99.000"},
+{q:"Was wiegt ein Golfball mehr oder weniger als ein Tischtennisball?",a:"Deutlich mehr (46g vs. 2,7g)"},
+{q:"Was hat Neil Armstrong als erstes Wort auf dem Mond gesagt?",a:"Houston (nicht 'ein kleiner Schritt')"},
+{q:"Was hat Walt Disney als erstes berühmt gezeichnet?",a:"Oswald den glücklichen Hasen (nicht Mickey)"},
+{q:"Welcher Diktator wurde für den Friedensnobelpreis nominiert?",a:"Hitler (satirisch 1939, zurückgezogen)"},
+{q:"Was haben mehr Einwohner: Tokio oder ganz Kanada?",a:"Fast gleich (~37 vs. ~38 Mio.)"},
+{q:"Was ist länger: Chinesische Mauer oder Küste Italiens?",a:"Die Chinesische Mauer (21.000 vs. 7.600 km)"},
+{q:"Was tragen Astronauten unter dem Raumanzug?",a:"Eine Windel (Maximum Absorbency Garment)"},
+{q:"Was war die Lieblingswaffe von Kleopatra bei politischen Morden?",a:"Gift"},
+{q:"Was wurde in der Antike aus Krokodildung hergestellt?",a:"Verhütungsmittel (im alten Ägypten)"},
+{q:"Was machen japanische Züge, wenn sie zu spät kommen?",a:"Sie stellen eine offizielle Verspätungsbescheinigung aus"},
+{q:"Welches Tier kann seinen eigenen Schwanz fressen und überleben?",a:"Manche Schlangenarten (Ouroboros-Verhalten)"},
+{q:"Was passiert mit einem Kirschkern im Magen?",a:"Nichts – er wird einfach ausgeschieden"},
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let sb = null; // supabase client
+let myId = localStorage.getItem('rv_myid') || crypto.randomUUID().slice(0,8);
+localStorage.setItem('rv_myid', myId);
+let myName = localStorage.getItem('rv_name') || '';
+let room = null;
+let screen = 'home';
+let error = '';
+let myAnswer = '';
+let submitted = false;
+let maxRounds = 6;
+let subscription = null;
+
+// ═══════════════════════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════════════════════
+function initSupabase() {
+  const url = 'https://mfpenavzuseykmhlnuvm.supabase.co';
+  const key = 'sb_publishable_0X64H7f4OLwgEOC816TzQQ_geqMhqTh';
+  sb = supabase.createClient(url, key);
+  return true;
+}
+
+async function saveRoom(state) {
+  if (!sb) return;
+  state.updated_at = new Date().toISOString();
+  const { error: e } = await sb.from('game_rooms').upsert({ code: state.roomCode, state: state, updated_at: state.updated_at });
+  if (e) console.error('Save error:', e);
+}
+
+async function loadRoom(code) {
+  if (!sb) return null;
+  const { data, error: e } = await sb.from('game_rooms').select('state').eq('code', code).single();
+  if (e || !data) return null;
+  return data.state;
+}
+
+function subscribeToRoom(code) {
+  if (subscription) subscription.unsubscribe();
+  subscription = sb.channel(`room-${code}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms', filter: `code=eq.${code}` }, (payload) => {
+      if (payload.new && payload.new.state) {
+        room = payload.new.state;
+        render();
+      }
+    })
+    .subscribe();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function genCode() {
+  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  return Array.from({length:4}, () => c[Math.floor(Math.random()*c.length)]).join('');
+}
+function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]} return b; }
+const FISH_EMOJI = ["🐟","🐡","🦈","🐠","🐙","🦑","🦀","🐳","🐋","🦞"];
+
+function setupRound(r) {
+  const ri = r.currentRaterIndex % r.players.length;
+  const nonR = r.players.filter((_,i) => i !== ri);
+  const bi = Math.floor(Math.random() * nonR.length);
+  const fa = {};
+  nonR.forEach((p,i) => fa[p.id] = i === bi ? 'blue' : 'red');
+  r.phase='answering'; r.currentRaterIndex=ri; r.bluePlayerId=nonR[bi].id;
+  r.fishAssign=fa; r.answers={}; r.answerOrder=[]; r.flipped=[]; r.revealedAnswer=false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════════
+async function doCreateRoom() {
+  const n = document.getElementById('nameInput')?.value?.trim();
+  if (!n) { error='Name eingeben!'; render(); return; }
+  myName = n; localStorage.setItem('rv_name', n);
+  const code = genCode();
+  room = {
+    roomCode:code, hostId:myId, players:[{id:myId,name:n,score:0}],
+    phase:'lobby', currentRaterIndex:0, currentQuestionIndex:0,
+    questionOrder:shuffle(QS.map((_,i)=>i)), answers:{}, answerOrder:[],
+    flipped:[], bluePlayerId:null, fishAssign:{}, roundsPlayed:0, maxRounds
+  };
+  await saveRoom(room);
+  subscribeToRoom(code);
+  screen='lobby'; error=''; render();
+}
+
+async function doJoinRoom() {
+  const n = document.getElementById('nameInput')?.value?.trim();
+  const c = document.getElementById('codeInput')?.value?.trim()?.toUpperCase();
+  if (!n||!c) { error='Name und Code eingeben!'; render(); return; }
+  myName = n; localStorage.setItem('rv_name', n);
+  const r = await loadRoom(c);
+  if (!r) { error='Raum nicht gefunden!'; render(); return; }
+  if (r.phase !== 'lobby') { error='Spiel läuft schon!'; render(); return; }
+  if (!r.players.find(p=>p.id===myId)) {
+    if (r.players.length>=10) { error='Raum voll!'; render(); return; }
+    r.players.push({id:myId,name:n,score:0});
+    await saveRoom(r);
+  }
+  room = r; subscribeToRoom(c);
+  screen='lobby'; error=''; render();
+}
+
+async function doStartGame() {
+  if (!room||room.players.length<3) { error='Mindestens 3 Spieler!'; render(); return; }
+  room.maxRounds = maxRounds;
+  setupRound(room);
+  await saveRoom(room); render();
+}
+
+async function doSubmitAnswer() {
+  const a = document.getElementById('answerInput')?.value?.trim();
+  if (!a) return;
+  const r = await loadRoom(room.roomCode);
+  r.answers[myId] = a;
+  const rater = r.players[r.currentRaterIndex];
+  const nonR = r.players.filter(p=>p.id!==rater.id);
+  if (nonR.every(p=>r.answers[p.id])) { r.answerOrder=shuffle(nonR.map(p=>p.id)); r.phase='guessing'; }
+  await saveRoom(r); room=r; submitted=true; myAnswer=''; render();
+}
+
+async function doFlip(pid) {
+  const r = await loadRoom(room.roomCode);
+  if (r.flipped.includes(pid)) return;
+  r.flipped.push(pid);
+  if (pid===r.bluePlayerId) {
+    r.phase='roundEnd'; r.revealedAnswer=true;
+  } else {
+    const rater=r.players[r.currentRaterIndex];
+    const reds=r.players.filter(p=>p.id!==rater.id&&p.id!==r.bluePlayerId);
+    // Points for surviving reds and blue
+    const survivingRed=reds.filter(p=>!r.flipped.includes(p.id));
+    survivingRed.forEach(p=>{ const pl=r.players.find(x=>x.id===p.id); if(pl)pl.score+=1; });
+    const bp=r.players.find(p=>p.id===r.bluePlayerId); if(bp)bp.score+=1;
+    if(reds.every(p=>r.flipped.includes(p.id))) {
+      const rp=r.players.find(p=>p.id===rater.id); if(rp)rp.score+=reds.length;
+      r.phase='roundEnd'; r.revealedAnswer=true;
+    }
+  }
+  await saveRoom(r); room=r; render();
+}
+
+async function doNextRound() {
+  const r = await loadRoom(room.roomCode);
+  r.roundsPlayed++; r.currentQuestionIndex++; r.currentRaterIndex=(r.currentRaterIndex+1)%r.players.length;
+  if (r.roundsPlayed>=r.maxRounds||r.currentQuestionIndex>=r.questionOrder.length) { r.phase='gameOver'; }
+  else setupRound(r);
+  await saveRoom(r); room=r; submitted=false; render();
+}
+
+async function doRestart() {
+  const r = await loadRoom(room.roomCode);
+  r.players.forEach(p=>p.score=0); r.roundsPlayed=0; r.currentRaterIndex=0; r.currentQuestionIndex=0;
+  r.questionOrder=shuffle(QS.map((_,i)=>i)); r.phase='lobby';
+  await saveRoom(r); room=r; submitted=false; render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  const me = room?.players?.find(p=>p.id===myId);
+  const isHost = room?.hostId===myId;
+  const isRater = room ? room.players[room.currentRaterIndex]?.id===myId : false;
+  const Q = room ? QS[room.questionOrder[room.currentQuestionIndex]] : null;
+  const myFish = room?.fishAssign?.[myId];
+
+  // ── HOME ──
+  if (screen==='home') {
+    app.innerHTML = `
+      <div class="center mt-24"><div class="emoji-big">🐟</div>
+      <h1 style="font-size:28px;font-weight:900;letter-spacing:-1px">RIECHT<br/>VERDÄCHTIG</h1>
+      <p style="color:var(--teal);font-size:13px;margin-top:8px;font-weight:600;letter-spacing:2px">DAS BLUFF-SPIEL</p></div>
+      <div class="card" style="margin-top:20px">
+        <input id="nameInput" placeholder="Dein Name" value="${myName}" maxlength="20"/>
+        ${error?`<p class="error">${error}</p>`:''}
+        <button class="btn btn-teal" onclick="goCreate()">Spiel erstellen</button>
+        <div class="divider"><div class="divider-line"></div><span class="divider-text">ODER</span><div class="divider-line"></div></div>
+        <input id="codeInput" class="code-input" placeholder="CODE" maxlength="4"/>
+        <button class="btn btn-blue" onclick="doJoinRoom()">Beitreten</button>
+      </div>
+      <p class="tiny center" style="color:#ffffff33;margin-top:24px">Privates Spiel · Inspiriert von Big Potato Games</p>`;
+    return;
+  }
+
+  // ── CREATE SETTINGS ──
+  if (screen==='create') {
+    const rndBtns = [4,6,8,10,12].map(n=>`<button onclick="maxRounds=${n};render()" style="width:44px;height:44px;border-radius:10px;border:none;font-size:16px;font-weight:800;background:${maxRounds===n?'var(--teal)':'var(--surface)'};color:var(--white);cursor:pointer;font-family:inherit">${n}</button>`).join('');
+    app.innerHTML = `
+      <div class="center mt-32"><div class="emoji-med">⚙️</div><h2 style="font-size:22px;font-weight:800;margin:12px 0">Einstellungen</h2></div>
+      <div class="card">
+        <label class="small" style="font-weight:700;color:var(--teal)">Rundenanzahl</label>
+        <div style="display:flex;gap:12px;margin-top:8px">${rndBtns}</div>
+        <button class="btn btn-teal" onclick="doCreateRoom()">Raum erstellen →</button>
+        <button class="btn btn-surface" onclick="screen='home';render()">← Zurück</button>
+      </div>`;
+    return;
+  }
+
+  if (!room) { app.innerHTML = '<p class="center mt-32 pulse">Lade...</p>'; return; }
+
+  // ── LOBBY ──
+  if (room.phase==='lobby') {
+    const rows = room.players.map((p,i)=>`
+      <div class="player-row" style="${p.id===myId?'background:#1abc9c22':''}">
+        <span style="font-size:22px">${FISH_EMOJI[i]||'🐟'}</span>
+        <span style="font-weight:700;flex:1">${p.name}${p.id===myId?' (du)':''}</span>
+        ${p.id===room.hostId?'<span class="tag" style="background:var(--gold);color:var(--ocean)">HOST</span>':''}
+      </div>`).join('');
+    const startBtn = isHost && room.players.length>=3 ? `<button class="btn btn-teal" onclick="doStartGame()">Spiel starten! 🎣</button>` :
+      isHost ? `<p class="small center error" style="margin-top:12px">Mindestens 3 Spieler nötig</p>` :
+      `<p class="small center muted" style="margin-top:12px">Warte auf den Host...</p>`;
+    app.innerHTML = `
+      <div class="center mt-32">
+        <div class="label" style="color:var(--teal)">RAUM-CODE</div>
+        <div style="font-size:48px;font-weight:900;letter-spacing:12px;margin:8px 0;color:var(--gold);text-shadow:0 0 24px #f1c40f44">${room.roomCode}</div>
+        <p class="small muted">Teile diesen Code mit deinen Freunden</p></div>
+      <div class="card mt-16">
+        <div class="small mb-12" style="font-weight:700;color:var(--teal)">SPIELER (${room.players.length}/10)</div>
+        ${rows}${startBtn}
+      </div>`;
+    return;
+  }
+
+  // ── ANSWERING ──
+  if (room.phase==='answering') {
+    const rater = room.players[room.currentRaterIndex];
+    const nonR = room.players.filter(p=>p.id!==rater.id);
+    const answered = nonR.filter(p=>room.answers[p.id]).length;
+
+    if (isRater) {
+      const chips = nonR.map(p=>`<div class="chip" style="background:${room.answers[p.id]?'#1abc9c33':'var(--surface)'};color:${room.answers[p.id]?'var(--teal)':'#ffffff44'}">${p.name} ${room.answers[p.id]?'✓':'...'}</div>`).join('');
+      app.innerHTML = `
+        <div class="center mt-24"><div class="label" style="color:var(--gold)">DU BIST DER RATER</div><div class="emoji-med">🔍</div></div>
+        <div class="card" style="background:linear-gradient(135deg,var(--card),var(--surface))">
+          <div class="small mb-8" style="font-weight:700;color:var(--teal)">FRAGE #${room.roundsPlayed+1}</div>
+          <p style="font-size:18px;font-weight:700;line-height:1.4">${Q?.q}</p></div>
+        <div class="card mt-12"><div class="small muted center">Warte auf Antworten... ${answered}/${nonR.length}</div>
+        <div class="status-dot">${chips}</div></div>`;
+    } else {
+      const done = submitted || room.answers[myId];
+      const col = myFish==='blue' ? 'var(--blue)' : 'var(--red)';
+      app.innerHTML = `
+        <div class="center mt-24"><div class="label" style="color:${col}">${myFish==='blue'?'🐟 DU BIST DER ECHTE HERING':'🐡 DU BIST EIN ROTER HERING'}</div>
+        <div style="font-size:36px;margin:8px 0">${myFish==='blue'?'🐟':'🐡'}</div></div>
+        <div class="card" style="border-color:${col}44">
+          <div class="small mb-8" style="font-weight:700;color:var(--teal)">FRAGE</div>
+          <p style="font-size:17px;font-weight:700;line-height:1.4;margin-bottom:12px">${Q?.q}</p>
+          <div class="answer-box" style="background:${myFish==='blue'?'#3498db22':'#e74c3c22'}">
+            <div class="tiny" style="font-weight:700;color:${col};margin-bottom:4px">${myFish==='blue'?'✅ RICHTIGE ANTWORT – gib sie so wieder!':'❌ DENK DIR ETWAS AUS!'}</div>
+            ${myFish==='blue'?`<p style="font-size:15px;font-weight:700;color:var(--gold)">${Q?.a}</p>`:`<p class="small muted">Erfinde eine glaubwürdige Antwort!</p>`}
+          </div>
+          ${!done?`<input id="answerInput" placeholder="${myFish==='blue'?'Tippe die richtige Antwort...':'Deine erfundene Antwort...'}" maxlength="120"/>
+            <button class="btn ${myFish==='blue'?'btn-blue':'btn-red'}" onclick="doSubmitAnswer()">Antwort abgeben</button>`
+            :`<div class="center" style="padding:16px;color:var(--teal);font-weight:700">✓ Abgegeben! Warte...</div>`}
+        </div>`;
+    }
+    return;
+  }
+
+  // ── GUESSING ──
+  if (room.phase==='guessing') {
+    const rater = room.players[room.currentRaterIndex];
+    const btns = room.answerOrder.map(pid => {
+      const p = room.players.find(x=>x.id===pid);
+      const fl = room.flipped.includes(pid);
+      const isRed = fl && pid!==room.bluePlayerId;
+      const isBlue = fl && pid===room.bluePlayerId;
+      const cls = isBlue?'flipped-blue':isRed?'flipped-red':'';
+      const icon = fl?(isBlue?'🐟':'🐡'):'❓';
+      const tag = isRed?'<span class="fish-badge" style="background:var(--red)">FAKE</span>':isBlue?'<span class="fish-badge" style="background:var(--blue)">ECHT</span>':'';
+      return `<button class="answer-btn ${cls}" ${fl||!isRater?'disabled':''} onclick="doFlip('${pid}')">
+        <span style="font-size:24px;min-width:32px">${icon}</span>
+        <div style="flex:1"><div style="font-weight:700">${p?.name}${pid===myId?' (du)':''}</div><div class="small" style="color:#ffffffcc;margin-top:2px">„${room.answers[pid]}"</div></div>${tag}</button>`;
+    }).join('');
+
+    app.innerHTML = `
+      <div class="center mt-24">
+        <div class="label" style="color:var(--gold)">${isRater?'FINDE DIE ROTEN HERINGE!':rater?.name+' rät jetzt...'}</div>
+        ${isRater?'<div class="small muted" style="margin-top:4px">Tippe auf die Antwort, die du für FALSCH hältst</div>':'<div style="font-size:36px;margin:8px 0">'+(myFish==='blue'?'🐟':'🐡')+'</div>'}
+      </div>
+      <div class="card mt-16">
+        <p style="font-size:16px;font-weight:700;margin-bottom:16px;color:var(--teal)">${Q?.q}</p>
+        ${btns}
+      </div>`;
+    return;
+  }
+
+  // ── ROUND END ──
+  if (room.phase==='roundEnd') {
+    const rater = room.players[room.currentRaterIndex];
+    const bp = room.players.find(p=>p.id===room.bluePlayerId);
+    const blueFlipped = room.flipped.includes(room.bluePlayerId);
+    const sorted = [...room.players].sort((a,b)=>b.score-a.score);
+    const rows = sorted.map((p,i)=>`
+      <div class="score-row" style="${i===0?'background:#f1c40f15':''}">
+        <span style="font-weight:900;font-size:16px;color:${i===0?'var(--gold)':'#ffffff44'};min-width:24px">${i+1}.</span>
+        <span style="flex:1;font-weight:600">${p.name}${p.id===myId?' (du)':''}</span>
+        <span style="font-weight:900;font-size:18px;color:var(--gold)">${p.score}</span>
+      </div>`).join('');
+
+    app.innerHTML = `
+      <div class="center mt-24"><div style="font-size:44px">${blueFlipped?'💥':'🎯'}</div>
+      <h2 style="font-size:20px;font-weight:800;margin:8px 0">${blueFlipped?rater?.name+' hat den echten Hering erwischt!':rater?.name+' hat alle Fälscher entlarvt!'}</h2></div>
+      <div class="card mt-12">
+        <div class="small mb-8" style="font-weight:700;color:var(--teal)">RICHTIGE ANTWORT</div>
+        <p style="font-size:17px;font-weight:700;color:var(--gold);margin-bottom:4px">${Q?.a}</p>
+        <p class="small muted">Blauer Hering: ${bp?.name}</p></div>
+      <div class="card mt-12">
+        <div class="small mb-8" style="font-weight:700;color:var(--teal)">PUNKTESTAND (Runde ${room.roundsPlayed+1}/${room.maxRounds})</div>
+        ${rows}</div>
+      ${isHost?`<button class="btn btn-teal" style="max-width:400px;margin-top:12px" onclick="doNextRound()">${room.roundsPlayed+1>=room.maxRounds?'Ergebnis anzeigen →':'Nächste Runde →'}</button>`
+        :`<p class="small muted center mt-16">Host startet nächste Runde...</p>`}`;
+    return;
+  }
+
+  // ── GAME OVER ──
+  if (room.phase==='gameOver') {
+    const sorted = [...room.players].sort((a,b)=>b.score-a.score);
+    const medals = ['🥇','🥈','🥉'];
+    const rows = sorted.map((p,i)=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;margin-bottom:6px;${i===0?'background:#f1c40f22;border:1px solid #f1c40f44':i<3?'background:#1abc9c11':''}">
+        <span style="font-size:28px;min-width:36px;text-align:center">${medals[i]||(i+1)+'.'}</span>
+        <span style="flex:1;font-weight:700;font-size:16px">${p.name}${p.id===myId?' (du)':''}</span>
+        <span style="font-weight:900;font-size:22px;color:var(--gold)">${p.score}</span>
+      </div>`).join('');
+
+    app.innerHTML = `
+      <div class="center mt-32"><div style="font-size:56px">🏆</div>
+      <h1 style="font-size:26px;font-weight:900;margin:8px 0">Spiel vorbei!</h1>
+      <p style="color:var(--gold);font-weight:700;font-size:18px">${sorted[0]?.name} gewinnt!</p></div>
+      <div class="card mt-16">${rows}</div>
+      ${isHost?`<button class="btn btn-teal" style="max-width:400px;margin-top:16px" onclick="doRestart()">🔄 Nochmal spielen</button>`:''}`;
+    return;
+  }
+
+  app.innerHTML = '<p class="center mt-32 pulse">Lade...</p>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GLOBAL HANDLERS
+// ═══════════════════════════════════════════════════════════════════
+window.goCreate = () => {
+  const n = document.getElementById('nameInput')?.value?.trim();
+  if (!n) { error='Name eingeben!'; render(); return; }
+  myName = n; localStorage.setItem('rv_name', n);
+  screen='create'; error=''; render();
+};
+window.doCreateRoom = doCreateRoom;
+window.doJoinRoom = doJoinRoom;
+window.doStartGame = doStartGame;
+window.doSubmitAnswer = doSubmitAnswer;
+window.doFlip = doFlip;
+window.doNextRound = doNextRound;
+window.doRestart = doRestart;
+window.maxRounds = maxRounds;
+
+// ── INIT ──
+initSupabase();
+render();
+</script>
+</body>
+</html>
