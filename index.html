@@ -330,12 +330,10 @@ function setupRound(r) {
 // ACTIONS
 // ═══════════════════════════════════════════════════════════════════
 async function doCreateRoom() {
-  const n = document.getElementById('nameInput')?.value?.trim();
-  if (!n) { error='Name eingeben!'; render(); return; }
-  myName = n; localStorage.setItem('rv_name', n);
+  if (!myName) { error='Name eingeben!'; screen='home'; render(); return; }
   const code = genCode();
   room = {
-    roomCode:code, hostId:myId, players:[{id:myId,name:n,score:0}],
+    roomCode:code, hostId:myId, players:[{id:myId,name:myName,score:0}],
     phase:'lobby', currentRaterIndex:0, currentQuestionIndex:0,
     questionOrder:shuffle(QS.map((_,i)=>i)), answers:{}, answerOrder:[],
     flipped:[], bluePlayerId:null, fishAssign:{}, roundsPlayed:0, maxRounds
