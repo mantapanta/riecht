@@ -57,6 +57,9 @@ input:focus,.textarea:focus{border-color:var(--teal)}
 .label{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
 .answer-box{border-radius:10px;padding:12px;margin-bottom:12px}
 .hidden{display:none}
+.game-header{width:100%;max-width:400px;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,0.05);border-radius:12px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.1)}
+.game-footer{width:100%;max-width:400px;margin-top:auto;padding:24px 0 12px;text-align:center;border-top:1px solid rgba(255,255,255,0.1)}
+.beta-list{font-size:10px;color:rgba(255,255,255,0.3);line-height:1.6;font-weight:600;text-transform:uppercase;letter-spacing:1px}
 </style>
 </head>
 <body>
@@ -155,10 +158,8 @@ function subscribeToRoom(code) {
 // ═══════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════
-function genCode() {
-  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  return Array.from({length:4}, () => c[Math.floor(Math.random()*c.length)]).join('');
-}
+function genCode() { return "FISH"; }
+
 function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]} return b; }
 const FISH_EMOJI = ["🐟","🐡","🦈","🐠","🐙","🦑","🦀","🐳","🐋","🦞"];
 
@@ -192,27 +193,32 @@ async function doCreateRoom() {
   screen='lobby'; error=''; render();
 }
 
-async function doJoinRoom(codeOverride) {
+async function doQuickJoin() {
   const n = document.getElementById('nameInput')?.value?.trim() || myName;
-  const c = (codeOverride || document.getElementById('codeInput')?.value?.trim())?.toUpperCase();
   if (!n) { error='Name eingeben!'; render(); return; }
-  if (!c) { error='Code eingeben!'; render(); return; }
   myName = n; localStorage.setItem('rv_name', n);
-  const r = await loadRoom(c);
-  if (!r) { error='Raum nicht gefunden!'; render(); return; }
-  if (r.phase !== 'lobby') { error='Spiel läuft schon!'; render(); return; }
+  const c = "FISH";
+  let r = await loadRoom(c);
+  if (!r) {
+    // Create room if it doesn't exist
+    room = {
+      roomCode:c, hostId:myId, players:[{id:myId,name:myName,score:0}],
+      phase:'lobby', currentRaterIndex:0, currentQuestionIndex:0,
+      questionOrder:shuffle(QS.map((_,i)=>i)), answers:{}, answerOrder:[],
+      flipped:[], bluePlayerId:null, fishAssign:{}, roundsPlayed:0, maxRounds:6
+    };
+    await saveRoom(room);
+    subscribeToRoom(c);
+    screen='lobby'; error=''; render();
+    return;
+  }
+  if (r.phase !== 'lobby' && !r.players.find(p=>p.id===myId)) { error='Spiel läuft schon!'; render(); return; }
   if (!r.players.find(p=>p.id===myId)) {
-    if (r.players.length>=10) { error='Raum voll!'; render(); return; }
+    if (r.players.length>=12) { error='Raum voll!'; render(); return; }
     r.players.push({id:myId,name:n,score:0});
     await saveRoom(r);
   }
   room = r; subscribeToRoom(c);
-  
-  // Update URL to shareable link
-  const url = new URL(window.location);
-  url.searchParams.set('code', c);
-  window.history.pushState({}, '', url);
-
   screen='lobby'; error=''; render();
 }
 
@@ -299,12 +305,12 @@ function render() {
       <div class="card" style="margin-top:20px">
         <input id="nameInput" placeholder="Dein Name" value="${myName}" maxlength="20"/>
         ${error?`<p class="error">${error}</p>`:''}
-        <button class="btn btn-teal" onclick="goCreate()">Spiel erstellen</button>
-        <div class="divider"><div class="divider-line"></div><span class="divider-text">ODER</span><div class="divider-line"></div></div>
-        <input id="codeInput" class="code-input" placeholder="CODE" maxlength="4" value="${new URLSearchParams(window.location.search).get('code') || ''}"/>
-        <button class="btn btn-blue" onclick="doJoinRoom()">Beitreten</button>
+        <button class="btn btn-teal" onclick="doQuickJoin()">Spiel beitreten</button>
       </div>
-      <p class="tiny center" style="color:#ffffff33;margin-top:24px">Privates Spiel · Inspiriert von Big Potato Games</p>`;
+      <div class="game-footer">
+        <div class="label" style="font-size:9px;color:rgba(255,255,255,0.2);margin-bottom:8px">Beta-Tester</div>
+        <div class="beta-list">Vincent Charlotte Fritz Julia Felix Philipp Filippa Ben Paulina Alina Juno Julia Tom</div>
+      </div>`;
     return;
   }
 
@@ -337,12 +343,16 @@ function render() {
       `<p class="small center muted" style="margin-top:12px">Warte auf den Host...</p>`;
     app.innerHTML = `
       <div class="center mt-32">
-        <div class="label" style="color:var(--teal)">RAUM-CODE / EINLADUNGSLINK</div>
-        <div style="font-size:48px;font-weight:900;letter-spacing:12px;margin:8px 0;color:var(--gold);text-shadow:0 0 24px #f1c40f44">${room.roomCode}</div>
-        <p class="small muted">Teile den Code oder diesen <a href="?code=${room.roomCode}" style="color:var(--teal);text-decoration:none;font-weight:bold" onclick="event.preventDefault(); navigator.clipboard.writeText(window.location.host + '/?code=${room.roomCode}'); alert('Link in die Zwischenablage kopiert!');">Link (kopieren)</a></p></div>
+        <h2 style="font-weight:900;color:var(--gold)">LOBBY</h2>
+        <p class="small muted">Alle zusammen im selben Raum</p>
+      </div>
       <div class="card mt-16">
-        <div class="small mb-12" style="font-weight:700;color:var(--teal)">SPIELER (${room.players.length}/10)</div>
+        <div class="small mb-12" style="font-weight:700;color:var(--teal)">SPIELER (${room.players.length}/12)</div>
         ${rows}${startBtn}
+      </div>
+      <div class="game-footer">
+        <div class="label" style="font-size:9px;color:rgba(255,255,255,0.2);margin-bottom:8px">Beta-Tester</div>
+        <div class="beta-list">Vincent Charlotte Fritz Julia Felix Philipp Filippa Ben Paulina Alina Juno Julia Tom</div>
       </div>`;
     return;
   }
@@ -350,9 +360,9 @@ function render() {
   // ── RULES ──
   if (room.phase === 'rules') {
     app.innerHTML = `
-      <div class="center mt-24">
-        <div class="label" style="color:var(--gold)">SPIELREGELN</div>
-        <div style="font-size:36px;margin:8px 0">📜</div>
+      <div class="game-header">
+        <span class="small" style="font-weight:800;color:var(--teal)">REGELN</span>
+        <span class="small" style="font-weight:800;color:var(--gold)">STARTING...</span>
       </div>
       <div class="card" style="border-color:var(--gold)44">
         <p style="font-size:16px;font-weight:700;margin-bottom:12px;color:var(--teal)">So funktioniert's:</p>
@@ -365,6 +375,9 @@ function render() {
         </ul>
         ${isHost ? `<button class="btn btn-gold" onclick="doStartFirstRound()">Alles klar &ndash; Spiel beginnen!</button>` : `<div class="small muted center" style="margin-top:12px">Lest in Ruhe die Regeln. Warte auf den Host...</div>`}
       </div>
+      <div class="game-footer">
+        <div class="beta-list">Vincent Charlotte Fritz Julia Felix Philipp Filippa Ben Paulina Alina Juno Julia Tom</div>
+      </div>
     `;
     return;
   }
@@ -372,10 +385,17 @@ function render() {
   // ── GUESSING ──
   if (room.phase==='guessing') {
     const elapsed = Math.floor((Date.now() - (room.roundStartTime || Date.now())) / 1000);
-    const left = Math.max(0, 30 - elapsed);
+    const left = Math.max(0, 20 - elapsed);
     if (left > 0) window.guessTimer = setTimeout(render, 1000);
     const firstSpeakerId = room.answerOrder[0];
     const firstSpeaker = room.players.find(x=>x.id===firstSpeakerId);
+
+    const rater = room.players[room.currentRaterIndex];
+    const headerHtml = `
+      <div class="game-header">
+        <span class="small" style="font-weight:800;color:var(--teal)">RUNDE ${room.roundsPlayed + 1}/${room.maxRounds}</span>
+        <span class="small" style="font-weight:800;color:var(--gold)">SCORE: ${me?.score || 0}${isRater && (room.roundPoints[myId] > 0) ? ` (+${room.roundPoints[myId]})` : ''}</span>
+      </div>`;
 
     const timerHtml = left > 0 
       ? `<div style="background:#00000044;border-radius:12px;padding:16px;margin:16px 0;text-align:center">
@@ -387,7 +407,6 @@ function render() {
            <div style="font-size:16px;font-weight:700">Erster Sprecher: <span style="color:var(--gold);font-size:20px;display:block;margin-top:4px">${firstSpeaker?.name}</span></div>
          </div>`;
 
-    const rater = room.players[room.currentRaterIndex];
     const btns = room.answerOrder.map(pid => {
       const p = room.players.find(x=>x.id===pid);
       if (!p) return '';
@@ -405,22 +424,23 @@ function render() {
 
     if (isRater) {
       app.innerHTML = `
-        <div class="center mt-24">
+        ${headerHtml}
+        <div class="center mt-12">
           <div class="label" style="color:var(--gold)">DU BIST DER RATE-MEISTER</div>
           <p style="font-size:18px;font-weight:700;line-height:1.4;margin:12px 0">${Q?.q}</p>
-          <div class="small muted">Lies die Frage laut vor.<br/>Warte die Bedenkzeit ab.<br/>Flippe danach einen nach dem anderen um, den du für einen <b>Falschen Schwindelfisch (Lügner)</b> hältst!</div>
         </div>
         ${timerHtml}
         <div class="card mt-16" style="opacity:${left>0?'0.5':'1'}">
+          <div class="tiny muted mb-12 center">Tippe auf die Lügner:</div>
           ${btns}
-          ${room.flipped.length > 0 ? `<button class="btn btn-gold" onclick="doBankPoints()">Punkte sichern & Runde beenden</button>` : ''}
+          ${room.flipped.length > 0 ? `<button class="btn btn-gold" onclick="doBankPoints()">Punkte sichern (+${room.roundPoints[myId] || 0})</button>` : ''}
         </div>`;
     } else {
       const col = myFish==='blue' ? 'var(--blue)' : 'var(--red)';
       app.innerHTML = `
-        <div class="center mt-24">
+        ${headerHtml}
+        <div class="center mt-12">
           <div class="label" style="color:${col}">${myFish==='blue'?'🐟 DU BIST DER WAHRE SCHWINDELFISCH':'🐡 DU BIST EIN FALSCHER SCHWINDELFISCH'}</div>
-          <div style="font-size:36px;margin:8px 0">${myFish==='blue'?'🐟':'🐡'}</div>
         </div>
         <div class="card" style="border-color:${col}44">
           <div class="small mb-8" style="font-weight:700;color:var(--teal)">FRAGE</div>
@@ -431,7 +451,9 @@ function render() {
           </div>
           ${timerHtml}
           <p class="small muted center">${myFish==='blue'?'Sag die richtige Antwort <b>ganz selbstbewusst laut</b>, wenn du dran bist!':'Denk dir <b>schnell eine falsche Antwort</b> aus und sag sie in die Runde!'}</p>
-          ${room.flipped.includes(myId) ? `<div class="center mt-16" style="color:var(--gold);font-weight:700;background:#00000044;padding:12px;border-radius:8px">Du wurdest entlarvt!</div>` : ''}
+        </div>
+        <div class="game-footer">
+          <div class="beta-list">Vincent Charlotte Fritz Julia Felix Philipp Filippa Ben Paulina Alina Juno Julia Tom</div>
         </div>`;
     }
     return;
@@ -498,7 +520,7 @@ window.goCreate = () => {
   screen='create'; error=''; render();
 };
 window.doCreateRoom = doCreateRoom;
-window.doJoinRoom = doJoinRoom;
+window.doQuickJoin = doQuickJoin;
 window.doStartGame = doStartGame;
 window.doStartFirstRound = doStartFirstRound;
 window.doBankPoints = doBankPoints;
@@ -509,12 +531,8 @@ window.maxRounds = maxRounds;
 
 // ── INIT ──
 initSupabase();
-const urlCode = new URLSearchParams(window.location.search).get('code');
-if (urlCode && myName) {
-  doJoinRoom(urlCode);
-} else {
-  render();
-}
+render();
 </script>
+
 </body>
 </html>
