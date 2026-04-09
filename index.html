@@ -172,6 +172,7 @@ function setupRound(r) {
   r.players.forEach(p => r.roundPoints[p.id] = 0);
   r.phase='guessing'; r.currentRaterIndex=ri; r.bluePlayerId=nonR[bi].id;
   r.fishAssign=fa; r.answerOrder=shuffle(nonR.map(p=>p.id)); r.flipped=[]; r.revealedAnswer=false;
+  r.roundStartTime = Date.now();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -284,6 +285,7 @@ async function doRestart() {
 // RENDER
 // ═══════════════════════════════════════════════════════════════════
 function render() {
+  if (window.guessTimer) { clearTimeout(window.guessTimer); window.guessTimer = null; }
   const app = document.getElementById('app');
   const me = room?.players?.find(p=>p.id===myId);
   const isHost = room?.hostId===myId;
@@ -372,6 +374,22 @@ function render() {
 
   // ── GUESSING ──
   if (room.phase==='guessing') {
+    const elapsed = Math.floor((Date.now() - (room.roundStartTime || Date.now())) / 1000);
+    const left = Math.max(0, 30 - elapsed);
+    if (left > 0) window.guessTimer = setTimeout(render, 1000);
+    const firstSpeakerId = room.answerOrder[0];
+    const firstSpeaker = room.players.find(x=>x.id===firstSpeakerId);
+
+    const timerHtml = left > 0 
+      ? `<div style="background:#00000044;border-radius:12px;padding:16px;margin:16px 0;text-align:center">
+           <div class="tiny" style="color:var(--teal);margin-bottom:8px;font-weight:700">BEDENKZEIT VOR DEM ERSTEN SPRECHER</div>
+           <div style="font-size:36px;font-weight:900;color:var(--gold)">${left}s</div>
+         </div>`
+      : `<div style="background:#1abc9c22;border:1px solid var(--teal);border-radius:12px;padding:16px;margin:16px 0;text-align:center">
+           <div class="tiny" style="color:var(--teal);margin-bottom:8px;font-weight:700">ZEIT ABGELAUFEN!</div>
+           <div style="font-size:16px;font-weight:700">Erster Sprecher: <span style="color:var(--gold);font-size:20px;display:block;margin-top:4px">${firstSpeaker?.name}</span></div>
+         </div>`;
+
     const rater = room.players[room.currentRaterIndex];
     const btns = room.answerOrder.map(pid => {
       const p = room.players.find(x=>x.id===pid);
@@ -382,7 +400,8 @@ function render() {
       const cls = isBlue?'flipped-blue':isRed?'flipped-red':'';
       const icon = fl?(isBlue?'🐟':'🐡'):'❓';
       const tag = isRed?'<span class="fish-badge" style="background:var(--red)">FAKE</span>':isBlue?'<span class="fish-badge" style="background:var(--blue)">ECHT</span>':'';
-      return `<button class="answer-btn ${cls}" ${fl||!isRater?'disabled':''} onclick="doFlip('${pid}')">
+      const disabled = fl || !isRater || left > 0;
+      return `<button class="answer-btn ${cls}" ${disabled?'disabled':''} onclick="doFlip('${pid}')">
         <span style="font-size:24px;min-width:32px">${icon}</span>
         <div style="flex:1"><div style="font-weight:700">${p.name}${pid===myId?' (du)':''}</div></div>${tag}</button>`;
     }).join('');
@@ -392,9 +411,10 @@ function render() {
         <div class="center mt-24">
           <div class="label" style="color:var(--gold)">DU BIST DER RATE-MEISTER</div>
           <p style="font-size:18px;font-weight:700;line-height:1.4;margin:12px 0">${Q?.q}</p>
-          <div class="small muted">Lies die Frage laut vor.<br/>Lass dir von der Runde verbal ihre Antworten aufsagen.<br/>Flippe dann einen nach dem anderen um, den du für einen <b>Falschen Schwindelfisch (Lügner)</b> hältst!</div>
+          <div class="small muted">Lies die Frage laut vor.<br/>Warte die Bedenkzeit ab.<br/>Flippe danach einen nach dem anderen um, den du für einen <b>Falschen Schwindelfisch (Lügner)</b> hältst!</div>
         </div>
-        <div class="card mt-16">
+        ${timerHtml}
+        <div class="card mt-16" style="opacity:${left>0?'0.5':'1'}">
           ${btns}
           ${room.flipped.length > 0 ? `<button class="btn btn-gold" onclick="doBankPoints()">Punkte sichern & Runde beenden</button>` : ''}
         </div>`;
@@ -412,6 +432,7 @@ function render() {
             <div class="tiny" style="font-weight:700;color:${col};margin-bottom:4px">${myFish==='blue'?'✅ DIE RICHTIGE ANTWORT:':'❌ NICHT VERWENDEN (Reale Antwort):'}</div>
             <p style="font-size:16px;font-weight:${myFish==='blue'?900:400};color:var(--gold);${myFish==='red'?'text-decoration:line-through;opacity:0.8':''}">${Q?.a}</p>
           </div>
+          ${timerHtml}
           <p class="small muted center">${myFish==='blue'?'Sag die richtige Antwort <b>ganz selbstbewusst laut</b>, wenn du dran bist!':'Denk dir <b>schnell eine falsche Antwort</b> aus und sag sie in die Runde!'}</p>
           ${room.flipped.includes(myId) ? `<div class="center mt-16" style="color:var(--gold);font-weight:700;background:#00000044;padding:12px;border-radius:8px">Du wurdest entlarvt!</div>` : ''}
         </div>`;
