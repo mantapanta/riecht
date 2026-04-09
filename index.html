@@ -231,11 +231,9 @@ async function doStartFirstRound() {
 
 async function doBankPoints() {
   const r = await loadRoom(room.roomCode);
-  const rater=r.players[r.currentRaterIndex];
-  const reds=r.players.filter(p=>p.id!==rater.id&&p.id!==r.bluePlayerId);
-  const survivingRed=reds.filter(p=>!r.flipped.includes(p.id));
-  survivingRed.forEach(p=>{ r.roundPoints[p.id] = 1; });
-  r.players.forEach(p => p.score += (r.roundPoints[p.id] || 0));
+  const raterId = r.players[r.currentRaterIndex].id;
+  const rater = r.players.find(p=>p.id===raterId);
+  if (rater) rater.score += (r.roundPoints[raterId] || 0);
   r.phase='roundEnd'; r.revealedAnswer=true;
   await saveRoom(r); room=r; render();
 }
@@ -244,22 +242,21 @@ async function doFlip(pid) {
   const r = await loadRoom(room.roomCode);
   if (r.flipped.includes(pid)) return;
   r.flipped.push(pid);
+  const raterId = r.players[r.currentRaterIndex].id;
+
   if (pid===r.bluePlayerId) {
-    r.roundPoints[r.players[r.currentRaterIndex].id] = 0;
-    const rater=r.players[r.currentRaterIndex];
-    const reds=r.players.filter(p=>p.id!==rater.id&&p.id!==r.bluePlayerId);
-    const survivingRed=reds.filter(p=>!r.flipped.includes(p.id));
-    survivingRed.forEach(p=>{ r.roundPoints[p.id] = 1; });
-    r.players.forEach(p => p.score += (r.roundPoints[p.id] || 0));
+    // Wahres Schwindelfisch aufgedeckt! 0 Punkte für diese Runde.
+    r.roundPoints[raterId] = 0;
     r.phase='roundEnd'; r.revealedAnswer=true;
   } else {
-    const raterId = r.players[r.currentRaterIndex].id;
+    // Falschen Schwindelfisch aufgedeckt -> +1 Punkt!
     r.roundPoints[raterId] = (r.roundPoints[raterId] || 0) + 1;
-    r.roundPoints[r.bluePlayerId] = (r.roundPoints[r.bluePlayerId] || 0) + 1;
-    const rater=r.players[r.currentRaterIndex];
-    const reds=r.players.filter(p=>p.id!==rater.id&&p.id!==r.bluePlayerId);
+    const rater = r.players.find(p=>p.id===raterId);
+    const reds = r.players.filter(p=>p.id!==raterId&&p.id!==r.bluePlayerId);
+    
+    // Sind alle falschen Schwindelfische entlarvt?
     if(reds.every(p=>r.flipped.includes(p.id))) {
-      r.players.forEach(p => p.score += (r.roundPoints[p.id] || 0));
+      if (rater) rater.score += (r.roundPoints[raterId] || 0);
       r.phase='roundEnd'; r.revealedAnswer=true;
     }
   }
@@ -363,8 +360,8 @@ function render() {
           <li style="margin-bottom:8px">Ein Spieler ist in der jeweiligen Runde der <b>Rate-Meister</b> und liest die Frage von seinem Handy allen vor.</li>
           <li style="margin-bottom:8px">Alle anderen erhalten parallel heimlich ihre Rolle auf ihrem eigenen Handy angezeigt. Einer ist der <b>Wahre Schwindelfisch</b> (kennt die wahre Antwort), die anderen sind <b>Falsche Schwindelfische</b> (sind Lügner und müssen sich spontan eine falsche Antwort ausdenken).</li>
           <li style="margin-bottom:8px">Jeder spricht nacheinander (ganz normal mündlich im Raum) seine Antwort laut aus.</li>
-          <li style="margin-bottom:8px">Nachdem alle geredet haben, muss der Rate-Meister tippen, wer gelogen hat, und auf seinem eigenen Handy deren Buttons antippen. Jeder entlarvte Falsche Schwindelfisch bringt Punkte!</li>
-          <li><b>Aber Achtung:</b> Deckt der Rate-Meister aus Versehen den einzigen Wahren Schwindelfisch auf, verliert der Rate-Meister alle seine Punkte und die Runde ist beendet!</li>
+          <li style="margin-bottom:8px">Muss der Rate-Meister tippen, wer gelogen hat, und auf seinem eigenen Handy deren Buttons antippen. Jeder entlarvte Falsche Schwindelfisch bringt <b>dem Rate-Meister 1 Punkt</b>! Alle anderen bekommen in diesem Spiel generell keine Punkte.</li>
+          <li><b>Aber Achtung:</b> Deckt der Rate-Meister aus Versehen den einzigen Wahren Schwindelfisch auf, verliert der Rate-Meister <b>alle seine Punkte aus dieser angefangenen Runde</b> und sie ist sofort beendet! Er kann aber frühzeitig "Punkte sichern", um kein Risiko mehr einzugehen.</li>
         </ul>
         ${isHost ? `<button class="btn btn-gold" onclick="doStartFirstRound()">Alles klar &ndash; Spiel beginnen!</button>` : `<div class="small muted center" style="margin-top:12px">Lest in Ruhe die Regeln. Warte auf den Host...</div>`}
       </div>
